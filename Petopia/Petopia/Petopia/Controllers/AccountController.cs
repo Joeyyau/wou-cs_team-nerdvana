@@ -400,8 +400,14 @@ namespace Petopia.Controllers
                 {
                     return View("ExternalLoginFailure");
                 }
+                
                 var user = new ApplicationUser { UserName = model.Email, Email = model.Email };
                 var result = await UserManager.CreateAsync(user);
+                var identity = User.Identity.GetUserId();
+                DAL.PetopiaUser currentUser = pdb.PetopiaUsers.Where(x => x.ASPNetIdentityID == identity).First();
+                currentUser.ASPNetIdentityID = identity;
+
+
                 if (result.Succeeded)
                 {
                     result = await UserManager.AddLoginAsync(user.Id, info.Login);
