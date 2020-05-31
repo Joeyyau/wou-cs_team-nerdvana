@@ -1896,7 +1896,8 @@ namespace Petopia.Controllers
 
             var customer = customers.Create(new CustomerCreateOptions
             {
-                Email = stripeEmail               
+                Email = stripeEmail,
+                Source = stripeToken
             });
 
             var charge = charges.Create(new ChargeCreateOptions
