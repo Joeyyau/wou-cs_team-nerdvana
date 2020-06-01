@@ -248,8 +248,8 @@ namespace Petopia.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult BookAppointment([Bind(Include = "TransactionID,StartDate,EndDate,StartTime,EndTime,CareProvided,CareReport," +
-          "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID," +
-          "CareProviderID,PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP")] 
+          "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID,CareProviderID," +
+          "PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP,IsPaid")] 
                                                             CareTransaction careTransaction)
         {
             if (ModelState.IsValid)
@@ -580,8 +580,8 @@ namespace Petopia.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult ConfirmAppointment([Bind(Include = "TransactionID,StartDate,EndDate,StartTime,EndTime,CareProvided,CareReport," +
-          "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID," +
-          "CareProviderID,PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP")] 
+          "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID,CareProviderID," +
+          "PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP,IsPaid")] 
                                                         CareTransaction careTransaction)
         {
             // so why *do* some of these have all that ^^^ and others don't?
@@ -994,7 +994,8 @@ namespace Petopia.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult EditAppointment([Bind(Include = "TransactionID,StartDate,EndDate,StartTime,EndTime,CareProvided,CareReport,Charge," +
           "Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID,CareProviderID,PetID," +
-            "NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP")]CareTransaction careTransaction)
+            "NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP,IsPaid")]
+                CareTransaction careTransaction)
         {
             if (ModelState.IsValid)
             {
@@ -1220,8 +1221,8 @@ namespace Petopia.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult CompleteAppointment_PetOwner([Bind(Include = "TransactionID,StartDate,EndDate,StartTime,EndTime,CareProvided,CareReport," +
-            "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID," +
-            "CareProviderID,PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP")] 
+            "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID,CareProviderID," +
+            "PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP,IsPaid")] 
                                                                 CareTransaction careTransaction)
         {
             if (ModelState.IsValid)
@@ -1329,8 +1330,8 @@ namespace Petopia.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult CompleteAppointment_PetCarer([Bind(Include = "TransactionID,StartDate,EndDate,StartTime,EndTime,CareProvided,CareReport," +
-            "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID," +
-            "CareProviderID,PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP")]
+            "Charge,Tip,PC_Rating,PC_Comments,PO_Rating,PO_Comments,PetOwnerID,CareProviderID," +
+            "PetID,NeededThisVisit,Pending,Confirmed,Completed_PO,Completed_CP,IsPaid")]
                                                         CareTransaction careTransaction)
         {
             if (ModelState.IsValid)
@@ -1880,16 +1881,131 @@ namespace Petopia.Controllers
                     CareTransactionID = ct.TransactionID,
 
                     Pending = ct.Pending, Confirmed = ct.Confirmed,
-                    Completed_PO = ct.Completed_PO, Completed_CP = ct.Completed_CP
+                    Completed_PO = ct.Completed_PO, Completed_CP = ct.Completed_CP,
+                    IsPaid = ct.IsPaid, 
+                    isPetOwner = puO.IsOwner, isPetCarer = puP.IsProvider
 
                 }).ToList();
 
             //---------------------------------------------------------
             return View(Vmodel);
         }
-
+        //===============================================================================
+        //                                            Stripe Charge stuff -- like the GET
+        //===============================================================================
         public ActionResult Charge(string stripeEmail, string stripeToken, int? id)
         {
+            //---------------------------------------------------------
+            //---------------------------------------------------------
+            if (id == null)
+            {
+                string badRequest = "id was null";
+                ViewBag.badRequest = badRequest;
+                return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
+            }
+
+            CareTransaction careTransaction = db.CareTransactions.Find(id);
+
+            if (careTransaction == null)
+            {
+                string notFound = "id not found";
+                ViewBag.notFound = notFound;
+                return HttpNotFound();
+            }
+            //---------------------------------------------------------
+            //---------------------------------------------------------
+            if (ModelState.IsValid)
+            {
+                careTransaction.TransactionID = careTransaction.TransactionID;
+                careTransaction.PetOwnerID = careTransaction.PetOwnerID;
+                careTransaction.PetID = careTransaction.PetID;
+                careTransaction.CareProviderID = careTransaction.CareProviderID;
+
+                careTransaction.StartDate = careTransaction.StartDate;
+                careTransaction.StartTime = careTransaction.StartTime;
+                careTransaction.EndDate = careTransaction.EndDate;
+                careTransaction.EndTime = careTransaction.EndTime;
+
+                careTransaction.NeededThisVisit = careTransaction.NeededThisVisit;
+                careTransaction.CareProvided = careTransaction.CareProvided;
+                careTransaction.CareReport = careTransaction.CareReport;
+
+                careTransaction.PC_Rating = careTransaction.PC_Rating;
+                careTransaction.PC_Comments = careTransaction.PC_Comments;
+                careTransaction.PO_Rating = careTransaction.PO_Rating;
+                careTransaction.PO_Comments = careTransaction.PO_Comments;
+
+                careTransaction.Pending = careTransaction.Pending;
+                careTransaction.Confirmed = careTransaction.Confirmed;
+                careTransaction.Completed_PO = careTransaction.Completed_PO;
+                careTransaction.Completed_CP = careTransaction.Completed_CP;
+
+                careTransaction.IsPaid = true;
+
+                db.Entry(careTransaction).State = EntityState.Modified;
+
+                db.SaveChanges();
+            }
+            //---------------------------------------------------------
+
+            ViewBag.IsPaid = "IsPaid? " + careTransaction.IsPaid;
+
+            //---------------------------------------------------------------------------
+            // the charge + tip for this CareTransaction:
+            var totalCharge = ((careTransaction.Charge + careTransaction.Tip) * 100);
+
+            //---------------------------------------------------------
+            // get Pet Owner name:
+            var PetOwnerID = db.CareTransactions.Where(ctID => ctID.TransactionID == id)
+                                                .Select(poID => poID.PetOwnerID).FirstOrDefault();
+            var PetOwnerPetopiaID = db.PetOwners.Where(poID => poID.PetOwnerID == PetOwnerID)
+                                                .Select(puID => puID.UserID).FirstOrDefault();
+
+            var PetOwnerFirstName = db.PetopiaUsers.Where(puID => puID.UserID == PetOwnerPetopiaID)
+                                                   .Select(poFN => poFN.FirstName).FirstOrDefault();
+            var PetOwnerLastName = db.PetopiaUsers.Where(puID => puID.UserID == PetOwnerPetopiaID)
+                                                  .Select(poLN => poLN.LastName).FirstOrDefault();
+
+            ViewBag.PetOwnerName = PetOwnerFirstName + " " + PetOwnerLastName;
+
+            //---------------------------------------------------------
+            // get Pet name:
+            var PetID = db.CareTransactions.Where(ctID => ctID.TransactionID == id)
+                                           .Select(petID => petID.PetID).FirstOrDefault();
+
+            var PetName = db.Pets.Where(petID => petID.PetID == PetID)
+                                 .Select(petN => petN.PetName).FirstOrDefault();
+
+            ViewBag.PetName = PetName;
+
+            //---------------------------------------------------------
+            // get StartDate for this appointment:
+            var thisStartDate = db.CareTransactions.Where(ctID => ctID.TransactionID == id)
+                                                   .Select(sd => sd.StartDate).FirstOrDefault();
+
+            ViewBag.thisStartDate = thisStartDate.ToString("MMMM dd, yyyy");
+
+            //---------------------------------------------------------
+            // get Pet Care Provider name:
+            var PetCarerID = db.CareTransactions.Where(ctID => ctID.TransactionID == id)
+                                                .Select(poID => poID.CareProviderID).FirstOrDefault();
+            var PetCarerPetopiaID = db.CareProviders.Where(poID => poID.CareProviderID == PetCarerID)
+                                                .Select(puID => puID.UserID).FirstOrDefault();
+
+            var PetCarerFirstName = db.PetopiaUsers.Where(puID => puID.UserID == PetCarerPetopiaID)
+                                                   .Select(pcFN => pcFN.FirstName).FirstOrDefault();
+            var PetCarerLastName = db.PetopiaUsers.Where(puID => puID.UserID == PetCarerPetopiaID)
+                                                  .Select(pcLN => pcLN.LastName).FirstOrDefault();
+
+            ViewBag.PetCarerName = PetCarerFirstName + " " + PetCarerLastName;
+
+            //---------------------------------------------------------
+            // testing & etc:
+            ViewBag.CareTransactionID = careTransaction.TransactionID;
+            ViewBag.thisPetOwnerID = PetOwnerID;
+            ViewBag.thisPetOwnerPetopiaID = PetOwnerPetopiaID;
+             
+            //---------------------------------------------------------------------------
             var customers = new CustomerService();
             var charges = new ChargeService();
             
@@ -1901,53 +2017,33 @@ namespace Petopia.Controllers
 
             var charge = charges.Create(new ChargeCreateOptions
             {
-                Amount = 500, //charge in cents
+                // convert to long -- it's losing the 50 cents! (on ctID=110)
+                Amount = Convert.ToInt64(totalCharge), //charge in cents
                 Description = "your pet care appointment",
                 Currency = "usd",
                 Customer = customer.Id
             });
 
-            ViewBag.CT_ID = id;
+            // for testing
+            ViewBag.CT_ID = id; // the passed-in ID
+
+            // bleh -- can't display this
             var formattedCharge = charge.Amount / 100;
-            ViewBag.ChargeAmount = "$" + formattedCharge.ToString("F");
+            ViewBag.ChargeAmount = "(the stripe charge.Amount one) $" + formattedCharge.ToString("0.00");
+
+            // just for display:
+            ViewBag.theREALcharge = totalCharge/100;
             ViewBag.ChargeDesc = charge.Description;
             ViewBag.Customer = charge.Customer;
-            ViewBag.Date = DateTime.Today.ToString("MMMM dd, yyyy");
+            ViewBag.CustomerEmail = customer.Email;
 
-            //---------------------------------------------------------
-            if (id == null)
-            {
-                string badRequest = "id was null";
-                ViewBag.badRequest = badRequest;
-                //return new HttpStatusCodeResult(HttpStatusCode.BadRequest);
-            }
-
-            CareTransaction careTransaction = db.CareTransactions.Find(id);
-
-            if (careTransaction == null)
-            {
-                string notFound = "id not found";
-                ViewBag.notFound = notFound;
-                //return HttpNotFound();
-            }
-            //---------------------------------------------------------
-            // testing:
-            //ViewBag.CareTransactionID = careTransaction.TransactionID;
-            // stuff
-
+            ViewBag.TodaysDate = DateTime.Today.ToString("MMMM dd, yyyy");
 
             //---------------------------------------------------------
 
             return View();
         }
-
-
-
-
-
-
-
-
+        //===============================================================================
 
 
 
