@@ -104,8 +104,6 @@ namespace Petopia.Controllers
 
             List<String> CareProviderZips = (from pu in pdb.PetopiaUsers where pu.IsProvider select pu.ResZipcode).ToList();
 
-            bool ZipInBothLists = zipsList.Any(x => x == searchZip);
-
             string ZipArray = String.Join(",", zipsList.ToArray());
 
             //var test = pdb.PetopiaUsers.Where(x => zipsList.Contains(x.ResZipcode)).ToList();
